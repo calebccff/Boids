@@ -4,7 +4,7 @@ int gen;
 boolean debug[] = {false,false,false};
 void setup(){
   fullScreen(FX2D); //FX2D renderer gives increased framerate
-  frameRate(99999);
+  frameRate(75);
   setups(int(random(0, 10000))); //intitalise the boids, done seperately so that they can be reset whithout restarting
 }
 void setups(int seed){
