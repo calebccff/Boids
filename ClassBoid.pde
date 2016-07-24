@@ -1,15 +1,15 @@
-class Boid{
-  PVector _vel = new PVector(0,0);
-  int intel;
-  float posX, posY, dir, aggro, spM, spA, spD, spT, hung, eat, full = 1, vel = 0;
-  boolean w = false, a = false, d = false, click = false, press = false, del = false;
-  Boid close = null;
-  Boid(){
-    posX = random(width*0.1,width*0.9);
+class Boid{ //The boids
+  PVector _vel = new PVector(0,0); //Directional velocity
+  int intel; //inteligence
+  float posX, posY, dir, aggro, spM, spA, spD, spT, hung, eat, full = 1, vel = 0; //initialise the variables, position, aggro etc
+  boolean w = false, a = false, d = false, click = false, press = false, del = false; //W, A and D for movement (legacy from user controlled program
+  Boid close = null; //The closest Boid
+  Boid(){ //Constructor
+    posX = random(width*0.1,width*0.9); //Assign variables to random numbers
     posY = random(height*0.1,height*0.9);
     dir = random(0,360);
     aggro = random(0,1);
-    spM = map(aggro,0,1,4.5,1.5)+random(-0.5,0.5);
+    spM = map(aggro,0,1,4.5,1.5)+random(-0.5,0.5); //Aggro affects the others, more aggro = slower etc...
     spA = spM/random(7.5,12.5);
     spD = spM/random(17.5,22.5);
     spT = random(5,5+aggro*10);
@@ -17,20 +17,20 @@ class Boid{
     eat = hung*random(20,40);
     intel = int(random(2,31));
   }
-  Boid(Boid father, Boid mother){
-    posX = random(width*0.1,width*0.9);
+  Boid(Boid father, Boid mother){ //Second constructor for breeding Boids
+    posX = random(width*0.1,width*0.9); //random position
     posY = random(height*0.1,height*0.9);
     dir = random(0,360);
-    aggro = ((father.aggro+mother.aggro)/2)*random(0.9,1.1);
+    aggro = ((father.aggro+mother.aggro)/2)*random(0.9,1.1); //Calculate mean for parent variables and add random for variation
     spM = ((father.spM+mother.spM)/2)*random(0.9,1.1);
     spA = ((father.spA+mother.spA)/2)*random(0.9,1.1);
     spD = ((father.spD+mother.spD)/2)*random(0.9,1.1);
     spT = ((father.spT+mother.spT)/2)*random(0.9,1.1);
     hung = ((father.hung+mother.hung)/2)*random(0.9,1.1);
     eat = ((father.eat+mother.eat)/2)*random(0.9,1.1);
-    intel = ceil(((father.intel+mother.intel)/2)*random(0.9,1.1));
+    intel = ceil(((father.intel+mother.intel)/2)*random(0.9,1.1)); //Round inteligence up (don't want a Boid with inteligence of 0)
   }
-  Boid(String[] data){
+  Boid(String[] data){ //Third constuctor for loading Boids from a file
     posX = float(data[0]);
     posY = float(data[1]);
     dir = float(data[2]);
@@ -52,7 +52,7 @@ class Boid{
     del = boolean(data[18]);
     
   }
-  void input(){
+  void input(){ //Input, calculate how to move
     //Is it already dead?
     try{
       if (close.del){
@@ -75,15 +75,13 @@ class Boid{
     else{
       dist = dist(posX,posY,close.posX,close.posY);
     }
-    if (dist >= spM*120 || close == null){
-      //If none of them are close, move randomly
+    if (dist >= spM*120 || close == null){ //If none of them are close, move randomly
       w = vel>spM?false:int(random(0,2))==0;
       a = a?int(random(0,4))!=0:int(random(0,4))==0;
       d = d?int(random(0,4))!=0:int(random(0,4))==0;
       close = null;
     }
-    else{
-      //Find the intended next angle (based on predator/prey)
+    else{ //Find the intended next angle (based on predator/prey)
       float ang = degrees(atan2(close.posY-posY,close.posX-posX));
       float turn;
       if (close.aggro > aggro){
@@ -175,8 +173,8 @@ class Boid{
     }
     dir = (dir+3600)%360;
     //Move
-    _vel = new PVector(vel,0).rotate(radians(dir));
-    posX += _vel.x;
+    _vel = new PVector(vel,0).rotate(radians(dir)); //Calculate the angle to rotate by
+    posX += _vel.x; //Set the position
     posY += _vel.y;
     //Wall collision
     if (posX > width){
@@ -205,12 +203,12 @@ class Boid{
       }
     }
   }
-  void display(){
+  void display(){ //Draw the Boid
   pushMatrix();
   translate(posX,posY);
   rotate(radians(dir));
   noStroke();
-  if (click){
+  if (click){ //Colour the Boid depending on if it has been highlighted and to show info like aggro and fullness
     if (hover()){
       fill(aggro>2?color(50,50,25,map(full,0,1,0,255)):color(map(aggro,0,2,250,50),map(aggro,0,2,250,50),map(aggro,0,2,150,25),map(full,0,1,0,255)));
       if (mousePressed && !press){
@@ -238,7 +236,7 @@ class Boid{
   }
   triangle(-15,-10,-15,10,15,-0);
   popMatrix();
-  if (debug[1] && close != null){
+  if (debug[1] && close != null){ //If debugging then show lines for predator/prey
       if (close.aggro > aggro){
         stroke(0,255,0);
         line(posX,posY,lerp(posX,close.posX,0.5),lerp(posY,close.posY,0.5));
@@ -252,12 +250,12 @@ class Boid{
         line(close.posX,close.posY,lerp(posX,close.posX,0.5),lerp(posY,close.posY,0.5));
       }
     }
-    if (debug[2]){
+    if (debug[2]){ //Show info about boid as text
       fill(255,0,0);
       text("Aggro: "+aggro+"\nMax speed: "+spM+"\nTurning speed: "+spT+"\nFullness: "+full+"\nHunger rate: "+hung+"\nIntelligence: "+intel,posX,posY);
     }
   }
-  boolean hover(){
+  boolean hover(){ //Calculate if the mouse is over the boid
     float x = mouseX - posX;
     float y = mouseY - posY;
     float theta = _vel.heading() + PI/2;
