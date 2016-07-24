@@ -1,4 +1,5 @@
 ArrayList<Boid> boids; //Create the arraylist for the boids
+float aveAggro, aveSpM, aveSpT, aveIntel;
 int gen;
 boolean debug[] = {false,false,false};
 void setup(){
