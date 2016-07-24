@@ -1,7 +1,11 @@
 ArrayList<Boid> boids; //Create the arraylist for the boids
 <<<<<<< HEAD
+<<<<<<< HEAD
 float aveAggro, aveSpM, aveSpT, aveIntel;
 =======
+>>>>>>> origin/master
+=======
+float aveAggro, aveSpM, aveSpT, aveIntel;
 >>>>>>> origin/master
 int gen;
 boolean debug[] = {false,false,false};
