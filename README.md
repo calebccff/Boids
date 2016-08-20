@@ -1,5 +1,7 @@
 #Boids
 A simulation of carnivorous animals in an environment, written in Processing.
+This branch is a remake using genetic algorothms for breeding which will allow for a much more realistic simulation (chapter 9 of The Nature of Code)
+btw Owen I'm on holiday so no wifi, at a pub so I'll upload when I get home
 
 #Instructions
 To run the code you will need [Processing](http://processing.org).
