@@ -1,11 +1,24 @@
+import javax.swing.*;
+
 ArrayList<Boid> boids; //Create the ArrayList for the boids.
-float aveAggro, aveSpM, aveSpT, aveIntel;
+float aveAggro, aveSpM, aveSpT, aveIntel, mutationRate;
 int gen;
 boolean debug[] = {false,false,false};
+SecondApplet s;
+
+void settings(){
+  size(displayWidth-230, displayHeight-76, FX2D); //FX2D renderer gives an increased framerate.
+}
+
+
 void setup(){
-  fullScreen(FX2D); //FX2D renderer gives an increased framerate.
-  frameRate(75);
-  setups(int(random(0, 10000))); //Intitalise the boids, done seperately so that they can be reset without restarting.
+  surface.setTitle("Boids");
+  surface.setLocation(215, 0);
+  s = new SecondApplet(displayWidth-(displayWidth-200), displayHeight-76);
+  PApplet.runSketch(new String[] {"DebugWindow"}, s);
+  frameRate(60);
+  //textFont(createFont("Consolas", 32, true));
+  setups(int(random(0, 100000))); //Intitalise the boids, done seperately so that they can be reset without restarting.
 }
 void setups(int seed){
   randomSeed(seed); //Set the random seed.
@@ -15,6 +28,7 @@ void setups(int seed){
   aveSpT = 0;
   aveIntel = 0;
   gen = 0;
+  mutationRate = 0.1;
   for (int i = 0; i < 100; i++){ //Initialise the boids and calculate the averages.
     boids.add(new Boid());
     aveAggro += boids.get(i).aggro;
@@ -22,14 +36,15 @@ void setups(int seed){
     aveSpT += boids.get(i).spT;
     aveIntel += boids.get(i).intel;
   }
-  aveAggro /= 100;
-  aveSpM /= 100;
-  aveSpT /= 100;
-  aveIntel /= 100;
+  aveAggro /= boids.size();
+  aveSpM /= boids.size();
+  aveSpT /= boids.size();
+  aveIntel /= boids.size();
   frameCount = 0;
 }
 void draw(){
-  background(0); //Refresh the background.
+  background(25, 50, 75); //Refresh the background.
+  //textFont(f);
   if (debug[1]){ //Display boundry lines (when boids are considered too close to the walls).
     stroke(255);
     line(50, 0, 50, height);
@@ -37,57 +52,58 @@ void draw(){
     line(width-50, 0, width-50, height);
     line(0, height-50, width, height-50);
   }
-  if (debug[0]){ //Display debug info (framerate, generation, population, averages)
-    fill(255,255,0);
-    text("FPS: "+round(frameRate)+"\nGen: "+gen+"\nNum: "+boids.size()+"\nAverage aggro: "+aveAggro+"\nAverage max speed: "+aveSpM+"\nAverage turn speed: "+aveSpT+"\nAverage intelligence: "+aveIntel,10,10);
-  }
+  
   for (int i = 0; i < boids.size(); i++){ //Make each boid move and display.
-    if (frameCount % boids.get(i).intel == 1){ //More inteligent boids (lower intel) make decisions more often.
+    if (frameCount % boids.get(i).intel == 0){ //More inteligent boids (lower intel) make decisions more often.
       boids.get(i).input();
     }
     boids.get(i).move();
     boids.get(i).display();
+    fill(255, 150, 25);
+    text(i, boids.get(i).posX, boids.get(i).posY);
   }
   for (int i = boids.size() - 1; i >= 0; i--){
     if (boids.get(i).del){ //Remove boids that have been eaten or have starved.
       boids.remove(i);
-      if (boids.size() == 20){ //Breed the boids when there are only 20 left.
+      if ((random(20)<1 && boids.size()<95) || boids.size() < 20){ //Breed the boids when there are only 20 left.
         breed();
       }
     }
   }
-  
 }
-void breed(){ //Create the next generation from the current generation.
+void breed(){ //new breed function which uses a mating pool and gives each Boid a chance to pass on it's genes
   aveAggro = 0; //Reset the averages.
   aveSpM = 0;
   aveSpT = 0;
   aveIntel = 0;
-  for (int i = 0; i < 10; i++){
-    boids.get(i*2).full = 1; //Reset the fullness of the surviving boids. (Unlike some programmers, we take care of our boids.)
-    boids.get(i*2+1).full = 1;
-    aveAggro += boids.get(i*2).aggro; //Recalculate the averages.
-    aveAggro += boids.get(i*2+1).aggro;
-    aveSpM += boids.get(i*2).spM;
-    aveSpM += boids.get(i*2+1).spM;
-    aveSpT += boids.get(i*2).spT;
-    aveSpT += boids.get(i*2+1).spT;
-    aveIntel += boids.get(i*2).intel;
-    aveIntel += boids.get(i*2+1).intel;
-    for (int j = 0; j < 10; j++){
-      boids.add(new Boid(boids.get(i*2),boids.get(i*2+1))); //Initialise the new boids from 2 parents.
-      aveAggro += boids.get(20+i).aggro;
-      aveSpM += boids.get(20+i).spM;
-      aveSpT += boids.get(20+i).spT;
-      aveIntel += boids.get(20+i).intel;
+  ArrayList<Boid> matingPool = new ArrayList(); //Create the mating pool
+  for(int i = 0; i < boids.size(); i++){
+    int n = int(boids.get(i).fitness()); //Add each Boid to the pool /fitness/ number of time (higher fitness = higher chance of passing on genes)
+    for(int j = 0; j < n; j++){
+      matingPool.add(boids.get(i));
     }
   }
-  aveAggro /= 120;
-  aveSpM /= 120;
-  aveSpT /= 120;
-  aveIntel /= 120;
+  for(int i = 0; i < 200-boids.size(); i++){ //Breed 100 new boids
+    int a = int(random(matingPool.size()));
+    int b = int(random(matingPool.size()));
+    boids.add(new Boid(matingPool.get(a), matingPool.get(b))); //A Boid can breed multiple times, potentially with itself
+  }
+  for(int i = 0; i < boids.size(); i++){ //Reset the averages
+    aveAggro += boids.get(i).aggro;
+    aveSpM += boids.get(i).spM;
+    aveSpT += boids.get(i).spT;
+    aveIntel += boids.get(i).intel;
+    boids.get(i).full = boids.get(i).fitness()<2?boids.get(i).full:1; //If the boid has a low fitness the don't reset hunger (Boid is more likely to die in next generation)
+    boids.get(i).escaped = 0; //Reset counters so the surviving Boids don't start a generation with a higher fitness
+    boids.get(i).caught = 0;
+  }
+  if(boids.size() > 0){
+    aveAggro /= boids.size();
+    aveSpM /= boids.size();
+    aveSpT /= boids.size();
+    aveIntel /= boids.size();
+  }
   gen++;
-  frameCount = 0; //Reset framecount each generation (so they all make a decision on the first frame).
 }
 void open(){ //Loading from a file.
   aveAggro = 0; //Reset the averages.
@@ -110,14 +126,14 @@ void open(){ //Loading from a file.
     aveIntel += boids.get(i).intel;
   }
   gen = int(data[len]);
-  aveAggro /= 100;
-  aveSpM /= 100;
-  aveSpT /= 100;
-  aveIntel /= 100;
+  aveAggro /= boids.size();
+  aveSpM /= boids.size();
+  aveSpT /= boids.size();
+  aveIntel /= boids.size();
 }
 void push(){ //Saving to a file.
   String data = "";
-  for (int i = 0; i < boids.size(); i++){ //Yes there is likely a much more efficient way of doing this why are you asking.
+  for (int i = 0; i < boids.size(); i++){ //Yes there is likely a much more efficient way of doing this why are you asking. (Somebody please do this better)
     data += boids.get(i).posX+"\n";
     data += boids.get(i).posY+"\n";
     data += boids.get(i).dir+"\n";
@@ -137,7 +153,7 @@ void push(){ //Saving to a file.
     data += boids.get(i).click+"\n";
     data += boids.get(i).press+"\n";
     data += boids.get(i).del+"\n";
-    if (boids.get(i).close == null){ // Store 'Forever alone' if the boid doesn't have a target or if it can't be found, or the index of the target otherwise.
+    if (boids.get(i).close == null){ // Store 'Forever alone' if the Boid doesn't have a target or if it can't be found, or the index of the target otherwise.
       data += "Forever alone\n";
     }else{
       boolean foundClose = false;

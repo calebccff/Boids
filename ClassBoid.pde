@@ -1,12 +1,15 @@
 class Boid{ //The boids.
   PVector _vel = new PVector(0,0); //Directional velocity.
-  int intel; //Inteligence (follows golf rules).
-  float posX, posY, dir, aggro, spM, spA, spD, spT, hung, eat, full = 1, vel = 0; //The various properties (position, direction, velocity, etc).
-  boolean w = false, a = false, d = false, click = false, press = false, del = false; //W, A and D for movement (legacy from user controlled program).
+  int intel, escaped = 0, caught = 0, millis = millis(), site;; //Inteligence (follows golf rules).
+  float posX, posY, startX, startY, dir, aggro, spM, spA, spD, spT, hung, eat, full = 1, vel = 0, habit = 0, size = 1; //The various properties (position, direction, velocity, etc).
+  boolean chased = false, w = false, a = false, d = false, click = false, press = false, del = false; //W, A and D for movement (legacy from user controlled program).
+  String info = "";
   Boid close = null; //The target boid.
   Boid(){ //First constructor (random numbers).
-    posX = random(width*0.1,width*0.9);
-    posY = random(height*0.1,height*0.9);
+    posX = random(width);
+    posY = random(height);
+    startX = posX;
+    startY = posY;
     dir = random(0,360);
     aggro = random(0,1); //Aggro affects some others (e.g. more aggressive = slower).
     spM = map(aggro,0,1,4.5,1.5)+random(-0.5,0.5);
@@ -15,24 +18,108 @@ class Boid{ //The boids.
     spT = random(5,5+aggro*10);
     hung = random(0.001,0.001+aggro*0.001);
     eat = hung*random(20,40);
-    intel = int(random(2,31));
+    intel = ceil(random(2,31));
+    habit = random(-2, 2);
+    size = map(aggro, 0, 1, 0.3, 0.5)+random(0.5);
+    site = round(random(80, 150));
   }
-  Boid(Boid father, Boid mother){ //Second constructor (breeding).
-    posX = random(width*0.1,width*0.9); //Random location.
-    posY = random(height*0.1,height*0.9);
-    dir = random(0,360);
-    aggro = ((father.aggro+mother.aggro)/2)*random(0.9,1.1); //Average of the parents, with random mutations.
-    spM = ((father.spM+mother.spM)/2)*random(0.9,1.1);
-    spA = ((father.spA+mother.spA)/2)*random(0.9,1.1);
-    spD = ((father.spD+mother.spD)/2)*random(0.9,1.1);
-    spT = ((father.spT+mother.spT)/2)*random(0.9,1.1);
-    hung = ((father.hung+mother.hung)/2)*random(0.9,1.1);
-    eat = ((father.eat+mother.eat)/2)*random(0.9,1.1);
-    intel = ceil(((father.intel+mother.intel)/2)*random(0.9,1.1)); //Ceil rounds intelligence up (don't want a Boid with intelligence of 0).
+  Boid(Boid parentA, Boid parentB){ //Second constructor (breeding) each gene is either recessive, dominant or nuetral and has a chance to be mutated in the child
+    posX = random(10,width-10); //set positions
+    posY = random(10,height-10);
+    startX = posX; //store the start positions, used in fitness so that boids which moved very little are more likely to have a fitness of 0 and not breed
+    startY = posY;
+    dir = random(0,360); //Set direction
+    if(random(1) < mutationRate){ //chance to mutate
+      aggro = random(1.5); //ignore parents genes and choose randomly
+    }if(parentA.aggro > parentB.aggro){ //Else favour lower aggression
+      aggro = parentB.aggro*random(0.9, 1.1);
+    }else{
+      aggro = parentA.aggro*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      spM = random(1, 6);
+    }else if(parentA.spM > parentB.spM){ //Favour higher max speed
+      spM = parentB.spM*random(0.9, 1.4);
+    }else{
+      spM = parentA.spM*random(0.9, 1.4);
+    }if(spM < 0.5){
+      spM = 0.8;
+    }
+    if(random(1) < mutationRate){
+      spA = spM/random(7.5,12.5);
+    }else{  //Chance to mutate, else take average from parents
+      spA = ((parentA.spA+parentB.spA)/2)*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      spD = spM/random(17.5,22.5);
+    }else{ //Same as above
+      spD = ((parentA.spD+parentB.spD)/2)*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      spT = random(5,5+aggro*10);
+    }else if(parentA.spT < aveSpT*1.1 && parentB.spT < aveSpT*1.1){ //Encourage slightly below average turning speed
+      spT = ((parentA.spT+parentB.spT)/2)*random(0.9, 1.1);
+    }else if(parentA.spT > parentB.spT){
+      spT = parentB.spT*random(0.9, 1.1);
+    }else{
+      spT = parentA.spT*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      hung = random(0.001,0.001+aggro*0.001);
+    }else if(parentA.hung > parentB.hung){ //Lower hung is better as Boid is less likely to starve (dominant)
+      hung = parentB.hung*random(0.9, 1.1);
+    }else{
+      hung = parentA.hung*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      eat = hung*random(20,40);
+    }else if(parentA.eat < parentB.eat){ //Higher eat is better as Boid will recover more fullness
+      eat = parentB.eat*random(0.9, 1.1);
+    }else{
+      eat = parentA.eat*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      intel = int(random(2,31));
+    }else if(parentA.intel < aveIntel*1.1 && parentB.intel < aveIntel*1.1){  //Favour lower intel, if both parents have below average inteligence, so will child
+      intel = ceil(((parentA.intel+parentB.intel)/2)*random(0.9, 1.1));
+    }else if(parentA.intel > parentB.intel){
+      intel = ceil(parentB.intel+random(-2, 2));
+    }else{
+      intel = ceil(parentA.intel+random(-2, 2));
+    }if(intel < 2){
+      intel = 2;
+    }
+    if(random(1) < mutationRate){
+      habit = random(-2, 2);
+    }else{  //Habit makes Boids prefer turning left or right
+      habit = ((parentA.habit+parentB.habit)/2)*random(0.9, 1.1);
+    }
+    if(random(1) < mutationRate){
+      size = random(1, 1.2);
+    }else if(parentA.size > 1 && parentB.size > 1){
+      size = ((parentA.size+parentB.size)/2)*random(0.9, 1.1);
+    }else if(parentA.size < parentB.size){
+      size = parentB.size*random(0.9, 1.1);
+    }else{
+      size = parentA.size*random(0.9, 1.1);
+    }if(size < 2){
+      size = 2;
+    }
+    if(random(1) < mutationRate){
+      site = round(random(80, 150));
+    }else if(parentA.site > 150 && parentB.site > 150){ //If both parents can see further than the max then pass on those genes
+      site = round(((parentA.site+parentB.site)/2)*random(0.9, 1.1));
+    }else if(parentA.site < parentB.site){ //Else use genes from the parent with the best site
+      site = round(parentB.site*random(0.9, 1.1));
+    }else{
+      site = round(parentA.site*random(0.9, 1.1));
+    }
   }
   Boid(String[] data){ //Third constuctor (file).
     posX = float(data[0]);
     posY = float(data[1]);
+    startX = posX;
+    startY = posY;
     dir = float(data[2]);
     aggro = float(data[3]);
     spM = float(data[4]);
@@ -61,7 +148,7 @@ class Boid{ //The boids.
     catch(NullPointerException e){
       close = null;
     }
-    if (close == null || dist(posX,posY,close.posX,close.posY) >= spM*120){ //If I don't have a target or my current one is further than 120 frames away, lock on to the closest boid within 60 frames.
+    if (close == null || dist(posX,posY,close.posX,close.posY) >= spM*site){ //If I don't have a target or my current one is further than 120 frames away, lock on to the closest boid within 60 frames.
       close = null;
       float dist = spM*60;
       for (int i = 0; i < boids.size(); i++){
@@ -72,14 +159,19 @@ class Boid{ //The boids.
       }
     }
     if (close == null){ //If I don't have a target, move randomly.
+      if(chased){
+        escaped++;
+        chased = false;
+      }
       w = vel>spM?false:int(random(0,2))==0;
-      a = a?int(random(0,4))!=0:int(random(0,4))==0;
-      d = d?int(random(0,4))!=0:int(random(0,4))==0;
+      a = a?int(random(0,4+habit))!=0:int(random(0,4+habit))==0;
+      d = d?int(random(0,4+habit))!=0:int(random(0,4-habit))==0;
     }
     else{ //Find my intended next angle (based on who the predator/prey between us is).
       float ang = degrees(atan2(close.posY-posY,close.posX-posX));
       float turn;
       if (close.aggro > aggro){
+        chased = true;
         turn = map((dir-ang+3600)%360,0,360,180,-180);
       }
       else{
@@ -183,13 +275,23 @@ class Boid{ //The boids.
     }
     for (int i = 0; i < boids.size(); i++){ // Be eaten. :(
       float dist = dist(posX,posY,boids.get(i).posX,boids.get(i).posY);
-      if (boids.get(i).aggro > aggro && dist <= 15){
-        del = true;
-        boids.get(i).full += boids.get(i).eat;
+      if (boids.get(i).aggro > aggro && dist <= width*0.008*size){
+        if(random(2-(size/2)) < 1 && millis()-millis<50){ //Chance that prey can escape predator but get's injured (loses speed)
+          spM-=random(1);
+          if(spM < 0.5){
+            spM = 0.5;
+          }
+          millis = millis();
+        }else if(millis()-millis > 1000){
+          del = true;
+          boids.get(i).caught++;
+          boids.get(i).full += boids.get(i).eat;
+        }
       }
     }
   }
   void display(){ //Draw the boid in the correct location/direction.
+  size+=0.00001;
   pushMatrix();
   translate(posX,posY);
   rotate(radians(dir));
@@ -220,8 +322,13 @@ class Boid{ //The boids.
       press = false;
     }
   }
-  triangle(-15,-10,-15,10,15,-0);
+  triangle(-width*0.008*size,-width*0.003*size,-width*0.008*size,width*0.003*size,width*0.008*size,0);
+  //triangle(-15,-10,-15,10,15,-0);
   popMatrix();
+  if(debug[2]){
+    fill(255, 40, 40);
+    text(info, posX, posY);
+  }
   if (debug[1] && close != null){ //Show lines for predator/prey.
       if (close.aggro > aggro){
         stroke(0,255,0);
@@ -236,10 +343,7 @@ class Boid{ //The boids.
         line(close.posX,close.posY,lerp(posX,close.posX,0.5),lerp(posY,close.posY,0.5));
       }
     }
-    if (debug[2]){ //Show information as text.
-      fill(255,0,0);
-      text("Aggro: "+aggro+"\nMax speed: "+spM+"\nTurning speed: "+spT+"\nFullness: "+full+"\nHunger rate: "+hung+"\nIntelligence: "+intel,posX,posY);
-    }
+      info = "Aggro: "+aggro+"\nMax speed: "+spM+"\nTurning speed: "+spT+"\nFullness: "+full+"\nHunger rate: "+hung+"\nIntelligence: "+intel+"\nFitness: "+fitness()+"\nHabit: "+habit+"\nSize: "+size+"\nSite: "+site;
   }
   boolean hover(){ //Calculate if the mouse is over the boid (as the hitbox rotates with the boid).
     float x = mouseX - posX;
@@ -250,5 +354,8 @@ class Boid{ //The boids.
     x = cos(a-theta)*d;
     y = sin(a-theta)*d;
     return x > -15 && x < 15 && y > -10 && y < 10;
+  }
+  float fitness(){
+    return pow(escaped*2+caught, 2)+1;
   }
 }
